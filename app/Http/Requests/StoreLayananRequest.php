@@ -25,6 +25,8 @@ class StoreLayananRequest extends FormRequest
             // 'tanggal' => ['required', 'date'],
             'kategori' => ['required', 'string', 'max:100'],
             'detail' => ['required', 'string'],
+            'supportingDocuments' => ['nullable', 'array', 'max:3'],
+            'supportingDocuments.*' => ['file', 'mimes:pdf', 'max:5120'],
         ];
     }
 

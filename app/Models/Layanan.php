@@ -21,6 +21,11 @@ class Layanan extends Model
         'supporting_documents',
     ];
 
+    protected $casts = [
+        'supporting_documents' => 'array',
+        'result_document' => 'array',
+    ];
+
     protected static function booted()
     {
         static::creating(function ($layanan) {

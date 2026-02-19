@@ -56,32 +56,37 @@ class LayananController extends Controller
      */
     public function store(StoreLayananRequest $request, KategoriLayanan $kategoriLayanan)
     {
-        $path = $request->file('supportingDocuments')->store('document/support', 'public');
+        $paths = [];
+        if ($request->hasFile('supportingDocuments')) {
+            foreach ($request->file('supportingDocuments') as $file) {
+                $paths[] = $file->store('document/support', 'public');
+            }
+        }
 
         // 1. Simpan layanan
         $layanan = Layanan::create([
             'user_id' => Auth::id(),
             'kategori_layanan_id' => $kategoriLayanan->id,
             'detail' => $request->detail,
-            'supporting_documents' => $path,
+            'supporting_documents' => $paths,
         ]);
 
         // Load relasi kategori
         $layanan->load(['kategori', 'user']);
 
         // 3. Kirim email notifikasi
-        try {
-            Mail::to($layanan->user->email)->send(
-                new ServiceSubmittedMail(
-                    $layanan->user->name,
-                    $layanan->kode_layanan,
-                    $layanan->kategori->nama_kategori
-                )
-            );
-        } catch (\Exception $e) {
-            // opsional: log error
-            Log::error("Gagal mengirim email: " . $e->getMessage());
-        }
+        // try {
+        //     Mail::to($layanan->user->email)->send(
+        //         new ServiceSubmittedMail(
+        //             $layanan->user->name,
+        //             $layanan->kode_layanan,
+        //             $layanan->kategori->nama_kategori
+        //         )
+        //     );
+        // } catch (\Exception $e) {
+        //     // opsional: log error
+        //     Log::error("Gagal mengirim email: " . $e->getMessage());
+        // }
 
         return redirect()->route('layanan.home')->with('success', 'Layanan berhasil diajukan.');
     }
@@ -120,14 +125,34 @@ class LayananController extends Controller
 
     public function destroy(Layanan $layanan)
     {
-        // Hapus file supporting document jika ada
-        if ($layanan->supporting_documents && Storage::disk('public')->exists($layanan->supporting_documents)) {
-            Storage::disk('public')->delete($layanan->supporting_documents);
+        // Hapus file supporting document jika ada (bisa array atau string)
+        if ($layanan->supporting_documents) {
+            if (is_array($layanan->supporting_documents)) {
+                foreach ($layanan->supporting_documents as $path) {
+                    if (Storage::disk('public')->exists($path)) {
+                        Storage::disk('public')->delete($path);
+                    }
+                }
+            } else {
+                if (Storage::disk('public')->exists($layanan->supporting_documents)) {
+                    Storage::disk('public')->delete($layanan->supporting_documents);
+                }
+            }
         }
 
-        // Hapus file result document jika ada
-        if ($layanan->result_document && Storage::disk('public')->exists($layanan->result_document)) {
-            Storage::disk('public')->delete($layanan->result_document);
+        // Hapus file result document jika ada (bisa array atau string)
+        if ($layanan->result_document) {
+            if (is_array($layanan->result_document)) {
+                foreach ($layanan->result_document as $path) {
+                    if (Storage::disk('public')->exists($path)) {
+                        Storage::disk('public')->delete($path);
+                    }
+                }
+            } else {
+                if (Storage::disk('public')->exists($layanan->result_document)) {
+                    Storage::disk('public')->delete($layanan->result_document);
+                }
+            }
         }
 
         // Hapus data layanan
@@ -202,13 +227,19 @@ class LayananController extends Controller
     {
 
         $request->validate([
-            'fileResultService' => 'required|file|mimes:pdf|max:5120',
+            'fileResultService' => ['required', 'array', 'max:3'],
+            'fileResultService.*' => ['file', 'mimes:pdf', 'max:5120'],
         ]);
 
-        $path = $request->file('fileResultService')->store('document/result', 'public');
+        $paths = [];
+        if ($request->hasFile('fileResultService')) {
+            foreach ($request->file('fileResultService') as $file) {
+                $paths[] = $file->store('document/result', 'public');
+            }
+        }
 
         $layanan->update([
-            'result_document' => $path,
+            'result_document' => $paths,
             'status' => 'Selesai',
         ]);
 

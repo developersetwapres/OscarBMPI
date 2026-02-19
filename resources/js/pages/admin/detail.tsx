@@ -2,8 +2,10 @@
 
 import type React from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
@@ -22,17 +24,27 @@ export default function DetailLayananPage({ service }: Props) {
     // const [status, setStatus] = useState(service.status);
     const [isSaving, setIsSaving] = useState(false);
 
-    const [fileResultService, setFileResultService] = useState<File | null>(
-        null,
+    // prepare server urls for existing result documents
+    const serverResultUrls: Array<string | null> = Array.isArray(
+        service.result_document,
+    )
+        ? service.result_document.map((p) => `/storage/${p}`)
+        : service.result_document
+          ? [`/storage/${service.result_document}`]
+          : [];
+
+    const [resultFiles, setResultFiles] = useState<Array<File | null>>(
+        serverResultUrls.length > 0
+            ? new Array(serverResultUrls.length).fill(null)
+            : [null],
+    );
+    const [resultPreviews, setResultPreviews] = useState<Array<string | null>>(
+        serverResultUrls.length > 0 ? serverResultUrls : [null],
     );
 
-    const serverFileUrl = service.result_document
-        ? `/storage/${service.result_document}`
-        : null;
-
-    const [previewUrl, setPreviewUrl] = useState<string | null>(serverFileUrl);
-
-    const [showUserDocPreview, setShowUserDocPreview] = useState(false);
+    const [selectedUserPreview, setSelectedUserPreview] = useState<
+        string | null
+    >(null);
 
     const handleStatusChange = (kodeLayanan: string, newStatus: string) => {
         router.put(
@@ -50,40 +62,68 @@ export default function DetailLayananPage({ service }: Props) {
     };
 
     const handleSave = () => {
-        if (!fileResultService) return;
+        const hasFile = resultFiles.some((f) => f);
+        if (!hasFile) return;
 
         setIsSaving(true);
-        router.post(
-            result.url(service.kode_layanan),
-            {
-                fileResultService,
+
+        const fd = new FormData();
+        resultFiles.forEach((f) => {
+            if (f) fd.append('fileResultService[]', f);
+        });
+
+        router.post(result.url(service.kode_layanan), fd, {
+            forceFormData: true,
+            onSuccess: () => {
+                setIsSaving(false);
             },
-            {
-                forceFormData: true,
-                onSuccess: () => {
-                    setIsSaving(false);
-                },
-                onError: () => {
-                    setIsSaving(false);
-                },
+            onError: () => {
+                setIsSaving(false);
             },
-        );
+        });
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleResultFileChange = (
+        index: number,
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
         if (!e.target.files || !e.target.files[0]) return;
         const file = e.target.files[0];
-
         if (file.type !== 'application/pdf') return;
 
         const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-        setFileResultService(file);
+
+        setResultFiles((prev) => {
+            const copy = [...prev];
+            copy[index] = file;
+            return copy;
+        });
+
+        setResultPreviews((prev) => {
+            const copy = [...prev];
+            copy[index] = url;
+            return copy;
+        });
     };
 
-    const handleRemoveUpload = () => {
-        setPreviewUrl(serverFileUrl);
-        setFileResultService(null);
+    const addResultFile = () => {
+        if (resultFiles.length >= 3) return;
+        setResultFiles((prev) => [...prev, null]);
+        setResultPreviews((prev) => [...prev, null]);
+    };
+
+    const removeResultFile = (index: number) => {
+        setResultPreviews((prev) => {
+            const copy = [...prev];
+            if (copy[index]) URL.revokeObjectURL(copy[index]!);
+            copy.splice(index, 1);
+            return copy;
+        });
+        setResultFiles((prev) => {
+            const copy = [...prev];
+            copy.splice(index, 1);
+            return copy;
+        });
     };
 
     const handleDelete = (kodeLayanan: string) => {
@@ -109,20 +149,26 @@ export default function DetailLayananPage({ service }: Props) {
 
     useEffect(() => {
         return () => {
-            if (previewUrl && previewUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(previewUrl);
-            }
+            resultPreviews.forEach((p) => {
+                if (p && p.startsWith('blob:')) URL.revokeObjectURL(p);
+            });
         };
-    }, [previewUrl]);
+    }, [resultPreviews]);
 
     useEffect(() => {
         if (flash.success) {
-            setFileResultService(null); // reset state upload
-            setPreviewUrl(serverFileUrl); // kembalikan ke file dari server
+            setResultFiles(
+                serverResultUrls.length > 0
+                    ? new Array(serverResultUrls.length).fill(null)
+                    : [null],
+            );
+            setResultPreviews(
+                serverResultUrls.length > 0 ? serverResultUrls : [null],
+            );
         }
     }, [flash.success]);
 
-    const disableSave = isSaving || !fileResultService;
+    const disableSave = isSaving || !resultFiles.some((f) => f);
 
     const getStatusStyles = (status: string) => {
         switch (status) {
@@ -162,16 +208,18 @@ export default function DetailLayananPage({ service }: Props) {
 
                     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
                         <div className="space-y-6 lg:col-span-2">
-                            <Card>
+                            <Card className="gap-4">
                                 <CardHeader>
-                                    <CardTitle>Informasi Pemohon</CardTitle>
+                                    <CardTitle className="text-xl font-bold">
+                                        Informasi Pemohon
+                                    </CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-3">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-sm font-medium text-muted-foreground">
+                                            <Label className="text-sm font-medium text-muted-foreground">
                                                 Nama Lengkap
-                                            </label>
+                                            </Label>
                                             <p className="text-base font-medium">
                                                 {service.user.name}
                                             </p>
@@ -211,9 +259,11 @@ export default function DetailLayananPage({ service }: Props) {
                                 </CardContent>
                             </Card>
 
-                            <Card>
+                            <Card className="gap-4">
                                 <CardHeader>
-                                    <CardTitle>Detail Permintaan</CardTitle>
+                                    <CardTitle className="text-xl font-bold">
+                                        Detail Permintaan
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div>
@@ -225,50 +275,76 @@ export default function DetailLayananPage({ service }: Props) {
                                         </div>
                                     </div>
 
-                                    {service.supporting_documents && (
-                                        <div>
-                                            <label className="mb-2 block text-sm font-medium text-muted-foreground">
-                                                Dokumen Pendukung (User)
-                                            </label>
-                                            <div className="space-y-4">
-                                                <div className="group flex cursor-pointer items-center gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:bg-muted/50">
-                                                    <div className="rounded bg-red-100 p-2 text-red-600">
-                                                        <FileText className="h-5 w-5" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-sm font-medium transition-colors group-hover:text-primary">
-                                                            {
-                                                                service.supporting_documents
-                                                            }
-                                                        </p>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-primary"
-                                                        onClick={() =>
-                                                            setShowUserDocPreview(
-                                                                !showUserDocPreview,
-                                                            )
-                                                        }
-                                                    >
-                                                        {showUserDocPreview
-                                                            ? 'Tutup Preview'
-                                                            : 'Lihat Preview'}
-                                                    </Button>
+                                    {(() => {
+                                        const docs = Array.isArray(
+                                            service.supporting_documents,
+                                        )
+                                            ? service.supporting_documents
+                                            : service.supporting_documents
+                                              ? [service.supporting_documents]
+                                              : [];
+
+                                        if (docs.length === 0) return null;
+
+                                        return (
+                                            <div>
+                                                <label className="mb-2 block text-sm font-medium text-muted-foreground">
+                                                    Dokumen Pendukung (User)
+                                                </label>
+                                                <div className="space-y-4">
+                                                    {docs.map((path, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="group flex cursor-pointer items-center gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:bg-muted/50"
+                                                        >
+                                                            <div className="rounded bg-red-100 p-2 text-red-600">
+                                                                <FileText className="h-5 w-5" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-medium transition-colors group-hover:text-primary">
+                                                                    {path
+                                                                        .split(
+                                                                            '/',
+                                                                        )
+                                                                        .pop()}
+                                                                </p>
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-primary"
+                                                                onClick={() =>
+                                                                    setSelectedUserPreview(
+                                                                        selectedUserPreview ===
+                                                                            `/storage/${path}`
+                                                                            ? null
+                                                                            : `/storage/${path}`,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {selectedUserPreview ===
+                                                                `/storage/${path}`
+                                                                    ? 'Tutup Preview'
+                                                                    : 'Lihat Preview'}
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+
+                                                    {selectedUserPreview && (
+                                                        <div className="flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-md border bg-muted">
+                                                            <iframe
+                                                                src={
+                                                                    selectedUserPreview
+                                                                }
+                                                                className="h-full w-full"
+                                                                title="Result Preview"
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {showUserDocPreview && (
-                                                    <div className="flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-md border bg-muted">
-                                                        <iframe
-                                                            src={`/storage/${service.supporting_documents}`}
-                                                            className="h-full w-full"
-                                                            title="Result Preview"
-                                                        />
-                                                    </div>
-                                                )}
                                             </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
                                 </CardContent>
                             </Card>
                         </div>
@@ -280,9 +356,9 @@ export default function DetailLayananPage({ service }: Props) {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">
+                                        <Label className="text-sm font-medium">
                                             Status Layanan
-                                        </label>
+                                        </Label>
 
                                         <select
                                             value={service.status}
@@ -292,7 +368,7 @@ export default function DetailLayananPage({ service }: Props) {
                                                     e.target.value,
                                                 )
                                             }
-                                            className={`w-full cursor-pointer rounded-md border border-input px-3 py-1.5 font-medium text-foreground transition-colors ${getStatusStyles(service.status)}`}
+                                            className={`mt-1.5 w-full cursor-pointer rounded-md border border-input px-3 py-1.5 font-medium text-foreground transition-colors ${getStatusStyles(service.status)}`}
                                         >
                                             <option value="Proses">
                                                 Proses
@@ -307,55 +383,144 @@ export default function DetailLayananPage({ service }: Props) {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">
+                                        <Label className="text-sm font-medium">
                                             Upload Dokumen Hasil
-                                        </label>
+                                        </Label>
 
-                                        {!previewUrl || previewUrl === '' ? (
-                                            <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-input p-4 text-center hover:bg-muted/50">
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf"
-                                                    onChange={handleFileUpload}
-                                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                                />
-                                                <Upload className="mb-2 h-6 w-6 text-muted-foreground" />
-                                                <p className="text-xs font-medium text-foreground">
-                                                    Upload Hasil (PDF)
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between rounded-md border bg-muted/20 p-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="h-4 w-4 text-red-600" />
-                                                        <span className="text-xs font-medium">
-                                                            Dokumen Hasil
-                                                        </span>
-                                                    </div>
-                                                    {fileResultService && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6"
-                                                            onClick={
-                                                                handleRemoveUpload
-                                                            }
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </Button>
+                                        <div className="mt-1.5 space-y-4">
+                                            {resultFiles.map((_, idx) => (
+                                                <div key={idx}>
+                                                    {!resultPreviews[idx] ? (
+                                                        <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-input p-4 text-center hover:bg-muted/50">
+                                                            <input
+                                                                type="file"
+                                                                accept=".pdf"
+                                                                onChange={(e) =>
+                                                                    handleResultFileChange(
+                                                                        idx,
+                                                                        e,
+                                                                    )
+                                                                }
+                                                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                                            />
+                                                            <Upload className="mb-2 h-6 w-6 text-muted-foreground" />
+                                                            <p className="text-xs font-medium text-foreground">
+                                                                Upload Hasil
+                                                                (PDF)
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between rounded-md border bg-muted/20 p-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <FileText className="h-4 w-4 text-red-600" />
+                                                                    <span className="text-xs font-medium">
+                                                                        Dokumen
+                                                                        Hasil
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    {resultPreviews[
+                                                                        idx
+                                                                    ] && (
+                                                                        <a
+                                                                            href={
+                                                                                resultPreviews[
+                                                                                    idx
+                                                                                ] ??
+                                                                                undefined
+                                                                            }
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            download={
+                                                                                resultPreviews[
+                                                                                    idx
+                                                                                ] &&
+                                                                                resultPreviews[
+                                                                                    idx
+                                                                                ].startsWith(
+                                                                                    'blob:',
+                                                                                )
+                                                                                    ? (resultFiles[
+                                                                                          idx
+                                                                                      ]
+                                                                                          ?.name ??
+                                                                                      `result-${idx + 1}.pdf`)
+                                                                                    : resultPreviews[
+                                                                                            idx
+                                                                                        ]
+                                                                                      ? resultPreviews[
+                                                                                            idx
+                                                                                        ]
+                                                                                            .split(
+                                                                                                '/',
+                                                                                            )
+                                                                                            .pop()
+                                                                                      : undefined
+                                                                            }
+                                                                        >
+                                                                            <Badge
+                                                                                variant="secondary"
+                                                                                className="h-6"
+                                                                            >
+                                                                                Download
+                                                                            </Badge>
+                                                                        </a>
+                                                                    )}
+                                                                    {service.status !=
+                                                                        'Selesai' && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-6 w-6"
+                                                                            onClick={() =>
+                                                                                removeResultFile(
+                                                                                    idx,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <X className="h-3 w-3" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="aspect-video w-full overflow-hidden rounded-md border bg-muted">
+                                                                <iframe
+                                                                    src={
+                                                                        resultPreviews[
+                                                                            idx
+                                                                        ] ??
+                                                                        undefined
+                                                                    }
+                                                                    className="h-full w-full"
+                                                                    title={`Result Preview ${idx}`}
+                                                                />
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
+                                            ))}
 
-                                                <div className="aspect-video w-full overflow-hidden rounded-md border bg-muted">
-                                                    <iframe
-                                                        src={previewUrl}
-                                                        className="h-full w-full"
-                                                        title="Result Preview"
-                                                    />
+                                            {service.status != 'Selesai' && (
+                                                <div>
+                                                    <Button
+                                                        type="button"
+                                                        onClick={addResultFile}
+                                                        disabled={
+                                                            resultFiles.length >=
+                                                            3
+                                                        }
+                                                        className="mt-2"
+                                                    >
+                                                        Tambah file
+                                                    </Button>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Maksimal 3 file
+                                                    </p>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
 
                                     <Button

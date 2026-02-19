@@ -64,8 +64,8 @@ export interface Layanan {
     kategori_layanan_id: number;
     kategori: KategoriLayanan;
     status: string;
-    result_document: string;
-    supporting_documents: string;
+    result_document: string[] | null;
+    supporting_documents: string[] | null;
     detail: string;
     keterangan: string;
     created_at: string;

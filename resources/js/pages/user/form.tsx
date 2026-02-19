@@ -17,41 +17,92 @@ interface initailProps {
 export default function UserPage({ kategoriLayanan }: initailProps) {
     const { auth } = usePage<SharedData>().props;
 
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [fileName, setFileName] = useState<string | null>(null);
-    const [fileUpload, setFileUpload] = useState(null);
+    const [previews, setPreviews] = useState<Array<string | null>>([null]);
+    const [fileNames, setFileNames] = useState<Array<string | null>>([null]);
+    const [files, setFiles] = useState<Array<File | null>>([null]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (
+        index: number,
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             if (file.type === 'application/pdf') {
-                setFileName(file.name);
-                setFileUpload(file);
+                setFileNames((prev) => {
+                    const copy = [...prev];
+                    copy[index] = file.name;
+                    return copy;
+                });
+
+                setFiles((prev) => {
+                    const copy = [...prev];
+                    copy[index] = file;
+                    return copy;
+                });
+
                 const url = URL.createObjectURL(file);
-                setPreviewUrl(url);
+                setPreviews((prev) => {
+                    const copy = [...prev];
+                    copy[index] = url;
+                    return copy;
+                });
             } else {
                 alert('Mohon upload file PDF');
             }
         }
     };
 
-    const clearFile = () => {
-        setPreviewUrl(null);
-        setFileName(null);
+    const removeFile = (index: number) => {
+        setPreviews((prev) => {
+            const copy = [...prev];
+            if (copy[index]) URL.revokeObjectURL(copy[index]!);
+            copy.splice(index, 1);
+            return copy;
+        });
+        setFileNames((prev) => {
+            const copy = [...prev];
+            copy.splice(index, 1);
+            return copy;
+        });
+        setFiles((prev) => {
+            const copy = [...prev];
+            copy.splice(index, 1);
+            return copy;
+        });
+    };
+
+    const addFile = () => {
+        if (files.length >= 3) return;
+        setFiles((prev) => [...prev, null]);
+        setPreviews((prev) => [...prev, null]);
+        setFileNames((prev) => [...prev, null]);
     };
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const data = {
-            kategori: formData.get('kategori'),
-            detail: formData.get('detail'),
-            supportingDocuments: fileUpload,
-        };
+        e.preventDefault();
 
-        router.post(store.url(data.kategori), data, {
+        const base = new FormData(e.currentTarget);
+        const kategori = base.get('kategori') as string;
+        const detail = base.get('detail') as string;
+
+        const fd = new FormData();
+        fd.append('kategori', kategori);
+        fd.append('detail', detail);
+
+        files.forEach((f) => {
+            if (f) fd.append('supportingDocuments[]', f);
+        });
+
+        router.post(store.url(kategori), fd, {
+            forceFormData: true,
             onSuccess: () => {
                 (e.target as HTMLFormElement).reset();
+                // cleanup previews
+                previews.forEach((p) => p && URL.revokeObjectURL(p));
+                setFiles([null]);
+                setPreviews([null]);
+                setFileNames([null]);
             },
             onError: (errors) => {
                 console.error('Terjadi kesalahan:', errors);
@@ -202,57 +253,100 @@ export default function UserPage({ kategoriLayanan }: initailProps) {
                                         <label className="text-sm font-medium">
                                             Dokumen Pendukung (PDF)
                                         </label>
-                                        {!previewUrl ? (
-                                            <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-input p-6 text-center transition-colors hover:bg-muted/50">
-                                                <input
-                                                    type="file"
-                                                    name="dokumen"
-                                                    accept=".pdf"
-                                                    onChange={handleFileChange}
-                                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                                />
-                                                <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-                                                <p className="text-sm font-medium text-foreground">
-                                                    Klik untuk upload dokumen
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Format PDF, maks 5MB
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center justify-between rounded-md border bg-muted/20 p-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="rounded bg-red-100 p-2 text-red-600">
-                                                            <FileText className="h-5 w-5" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-medium">
-                                                                {fileName}
+                                        <div className="space-y-4">
+                                            {files.map((_, idx) => (
+                                                <div key={idx}>
+                                                    {!previews[idx] ? (
+                                                        <div className="relative flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-input p-6 text-center transition-colors hover:bg-muted/50">
+                                                            <input
+                                                                type="file"
+                                                                name="supportingDocuments[]"
+                                                                accept=".pdf"
+                                                                onChange={(e) =>
+                                                                    handleFileChange(
+                                                                        idx,
+                                                                        e,
+                                                                    )
+                                                                }
+                                                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                                            />
+                                                            <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
+                                                            <p className="text-sm font-medium text-foreground">
+                                                                Klik untuk
+                                                                upload dokumen
                                                             </p>
                                                             <p className="text-xs text-muted-foreground">
-                                                                Siap diupload
+                                                                Format PDF, maks
+                                                                5MB
                                                             </p>
                                                         </div>
-                                                    </div>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={clearFile}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
+                                                    ) : (
+                                                        <div className="space-y-4">
+                                                            <div className="flex items-center justify-between rounded-md border bg-muted/20 p-3">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="rounded bg-red-100 p-2 text-red-600">
+                                                                        <FileText className="h-5 w-5" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-sm font-medium">
+                                                                            {
+                                                                                fileNames[
+                                                                                    idx
+                                                                                ]
+                                                                            }
+                                                                        </p>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Siap
+                                                                            diupload
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() =>
+                                                                            removeFile(
+                                                                                idx,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <X className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="aspect-[16/9] w-full overflow-hidden rounded-md border bg-muted">
+                                                                <iframe
+                                                                    src={
+                                                                        previews[
+                                                                            idx
+                                                                        ] ??
+                                                                        undefined
+                                                                    }
+                                                                    className="h-full w-full"
+                                                                    title={`PDF Preview ${idx}`}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="aspect-[16/9] w-full overflow-hidden rounded-md border bg-muted">
-                                                    <iframe
-                                                        src={previewUrl}
-                                                        className="h-full w-full"
-                                                        title="PDF Preview"
-                                                    />
-                                                </div>
+                                            ))}
+
+                                            <div>
+                                                <Button
+                                                    type="button"
+                                                    onClick={addFile}
+                                                    disabled={files.length >= 3}
+                                                    className="mt-2"
+                                                >
+                                                    Tambah file
+                                                </Button>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    Maksimal 3 file
+                                                </p>
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
 
                                     <Button
