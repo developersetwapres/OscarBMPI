@@ -67,7 +67,14 @@ export default function UserHomePage({ requests }: any) {
         Persuratan: <FileText className="h-5 w-5 text-violet-500" />,
     };
 
-    const downloadFile = (code: string) => {
+    const downloadFile = (code: string, path?: string) => {
+        if (path) {
+            // direct storage link for individual file
+            window.location.href = `/storage/${path}`;
+            return;
+        }
+
+        // fallback to existing route (single-file behavior)
         window.location.href = downloadResult.url(code);
     };
 
@@ -321,28 +328,55 @@ export default function UserHomePage({ requests }: any) {
                                                 {request.status === 'Selesai' &&
                                                     request.result_document && (
                                                         <div className="mt-3 border-t border-border pt-3">
-                                                            <div className="flex items-center justify-between rounded-md bg-muted/30 p-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <FileText className="h-4 w-4 text-primary" />
-                                                                    <span className="text-xs font-medium">
-                                                                        Dokumen
-                                                                        Hasil.pdf
-                                                                    </span>
-                                                                </div>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-7 gap-1 bg-transparent text-xs"
-                                                                    onClick={() =>
-                                                                        downloadFile(
-                                                                            request?.kode_layanan,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Download className="h-3 w-3" />
-                                                                    Unduh
-                                                                </Button>
-                                                            </div>
+                                                            {(Array.isArray(
+                                                                request.result_document,
+                                                            )
+                                                                ? request.result_document
+                                                                : [
+                                                                      request.result_document,
+                                                                  ]
+                                                            ).map(
+                                                                (
+                                                                    path: string,
+                                                                    i: number,
+                                                                ) => (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="mb-2 flex items-center justify-between rounded-md bg-muted/30 p-2"
+                                                                    >
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FileText className="h-4 w-4 text-primary" />
+                                                                            <span className="text-xs font-medium">
+                                                                                Dokumen
+                                                                                Hasil
+                                                                                _{' '}
+                                                                                {path
+                                                                                    .split(
+                                                                                        '/',
+                                                                                    )
+                                                                                    .pop()!
+                                                                                    .slice(
+                                                                                        -15,
+                                                                                    )}
+                                                                            </span>
+                                                                        </div>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="h-7 gap-1 bg-transparent text-xs"
+                                                                            onClick={() =>
+                                                                                downloadFile(
+                                                                                    request?.kode_layanan,
+                                                                                    path,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <Download className="h-3 w-3" />
+                                                                            Unduh
+                                                                        </Button>
+                                                                    </div>
+                                                                ),
+                                                            )}
                                                         </div>
                                                     )}
                                             </div>
