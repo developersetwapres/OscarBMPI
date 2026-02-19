@@ -112,6 +112,21 @@ export default function DetailLayananPage({ service }: Props) {
         setResultPreviews((prev) => [...prev, null]);
     };
 
+    const removeFiles = (idx: number) => {
+        resultPreviews.forEach((p) => p && URL.revokeObjectURL(p));
+        setResultFiles((prev) => {
+            const copy = [...prev];
+            copy.splice(idx, 1);
+            return copy;
+        });
+
+        setResultPreviews((prev) => {
+            const copy = [...prev];
+            copy.splice(idx, 1);
+            return copy;
+        });
+    };
+
     const removeResultFile = (index: number) => {
         setResultPreviews((prev) => {
             const copy = [...prev];
@@ -300,7 +315,7 @@ export default function DetailLayananPage({ service }: Props) {
                                                             <div className="rounded bg-red-100 p-2 text-red-600">
                                                                 <FileText className="h-5 w-5" />
                                                             </div>
-                                                            <div className="flex-1">
+                                                            <div className="max-w-full flex-1 overflow-hidden">
                                                                 <p className="text-sm font-medium transition-colors group-hover:text-primary">
                                                                     {path
                                                                         .split(
@@ -408,6 +423,17 @@ export default function DetailLayananPage({ service }: Props) {
                                                                 Upload Hasil
                                                                 (PDF)
                                                             </p>
+
+                                                            <div
+                                                                className="z-50 mt-2.5 rounded bg-gray-200 px-1 py-0.5 text-gray-600 transition-opacity hover:bg-gray-300"
+                                                                onClick={() =>
+                                                                    removeFiles(
+                                                                        idx,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <X className="h-5 w-5 text-red-500" />
+                                                            </div>
                                                         </div>
                                                     ) : (
                                                         <div className="space-y-2">
@@ -503,21 +529,25 @@ export default function DetailLayananPage({ service }: Props) {
                                             ))}
 
                                             {service.status != 'Selesai' && (
-                                                <div>
-                                                    <Button
-                                                        type="button"
-                                                        onClick={addResultFile}
-                                                        disabled={
-                                                            resultFiles.length >=
-                                                            3
-                                                        }
-                                                        className="mt-2"
-                                                    >
-                                                        Tambah file
-                                                    </Button>
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        Maksimal 3 file
-                                                    </p>
+                                                <div className="flex justify-center">
+                                                    <div className="text-center">
+                                                        <Badge
+                                                            onClick={
+                                                                addResultFile
+                                                            }
+                                                            className={
+                                                                resultFiles.length >=
+                                                                3
+                                                                    ? `mt-2 cursor-pointer bg-gray-300 text-gray-600`
+                                                                    : `mt-2 cursor-pointer bg-indigo-900 text-white hover:bg-indigo-800`
+                                                            }
+                                                        >
+                                                            Tambah file
+                                                        </Badge>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                            Maksimal 3 file
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

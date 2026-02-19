@@ -1,6 +1,7 @@
 'use client';
 
 import { FooterUser } from '@/components/oscar/footer-user';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { store } from '@/routes/layanan';
@@ -76,6 +77,25 @@ export default function UserPage({ kategoriLayanan }: initailProps) {
         setFiles((prev) => [...prev, null]);
         setPreviews((prev) => [...prev, null]);
         setFileNames((prev) => [...prev, null]);
+    };
+
+    const removeFiles = (idx: number) => {
+        previews.forEach((p) => p && URL.revokeObjectURL(p));
+        setFiles((prev) => {
+            const copy = [...prev];
+            copy.splice(idx, 1);
+            return copy;
+        });
+        setPreviews((prev) => {
+            const copy = [...prev];
+            copy.splice(idx, 1);
+            return copy;
+        });
+        setFileNames((prev) => {
+            const copy = [...prev];
+            copy.splice(idx, 1);
+            return copy;
+        });
     };
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -279,6 +299,17 @@ export default function UserPage({ kategoriLayanan }: initailProps) {
                                                                 Format PDF, maks
                                                                 5MB
                                                             </p>
+
+                                                            <div
+                                                                className="z-50 mt-2.5 rounded bg-gray-200 px-2 py-1 text-gray-600 transition-opacity hover:bg-gray-300"
+                                                                onClick={() =>
+                                                                    removeFiles(
+                                                                        idx,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <X className="h-6 w-6 text-red-500" />
+                                                            </div>
                                                         </div>
                                                     ) : (
                                                         <div className="space-y-4">
@@ -312,7 +343,7 @@ export default function UserPage({ kategoriLayanan }: initailProps) {
                                                                             )
                                                                         }
                                                                     >
-                                                                        <X className="h-4 w-4" />
+                                                                        <X className="h-6 w-6 text-red-600" />
                                                                     </Button>
                                                                 </div>
                                                             </div>
@@ -333,18 +364,22 @@ export default function UserPage({ kategoriLayanan }: initailProps) {
                                                 </div>
                                             ))}
 
-                                            <div>
-                                                <Button
-                                                    type="button"
-                                                    onClick={addFile}
-                                                    disabled={files.length >= 3}
-                                                    className="mt-2"
-                                                >
-                                                    Tambah file
-                                                </Button>
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    Maksimal 3 file
-                                                </p>
+                                            <div className="flex justify-center">
+                                                <div className="text-center">
+                                                    <Badge
+                                                        onClick={addFile}
+                                                        className={
+                                                            files.length >= 3
+                                                                ? `mt-2 cursor-pointer bg-gray-300 text-gray-600`
+                                                                : `mt-2 cursor-pointer bg-indigo-900 text-white hover:bg-indigo-800`
+                                                        }
+                                                    >
+                                                        Tambah file
+                                                    </Badge>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Maksimal 3 file
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
