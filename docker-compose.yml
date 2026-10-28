@@ -1,0 +1,9 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: oscarbpmi
+    container_name: oscarbpmi-app
+    restart: unless-stopped
+    working_dir: /var/www/
